@@ -1,16 +1,21 @@
 import knexSetup from "knex";
 
 export async function setupDb() {
-  const dbName = `TestDb-${makeId(10)}`;
+  const dbName = `TestDb_${makeId(10)}`;
   await knex.raw(`create database ${dbName}`);
-  await knex.destroy();
+  console.log(`Set up database: ${dbName}`);
 
   return {
+    dbName,
     knex: knexSetup({
       ...knexConfig,
       connection: { ...knexConfig.connection, database: dbName },
     }),
   };
+}
+export async function teardownDb(dbName: string) {
+  await knex.raw(`drop database ${dbName}`);
+  console.log(`torn down database: ${dbName}`);
 }
 
 const knexConfig = {
