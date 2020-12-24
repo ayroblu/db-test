@@ -11,19 +11,17 @@ Databases provide different isolation levels serializable, repeatable read / sna
 
 ### Throughput
 
-| ---------------- | ------------------------------------------------ |
-| Setup | Description |
-| ---------------- | ------------------------------------------------ |
-| No setup | Insert in a key value |
-| No setup | Insert in a glossary style with no indexes |
-| No setup | Insert in a glossary style with indexes on all |
-| 1 million rows | Insert in a glossary style with no indexes |
+| Setup          | Description                                    |
+| -------------- | ---------------------------------------------- |
+| No setup       | Insert in a key value                          |
+| No setup       | Insert in a glossary style with no indexes     |
+| No setup       | Insert in a glossary style with indexes on all |
+| 1 million rows | Insert in a glossary style with no indexes     |
 | 1 million rows | Insert in a glossary style with indexes on all |
-| No setup | Insert in a 1000 column style with no indexes |
-| No setup | Insert in a 1000 column style with indexes |
-| 1 million rows | Insert in a 1000 column style with no indexes |
-| 1 million rows | Insert in a 1000 column style with indexes |
-| ---------------- | ------------------------------------------------ |
+| No setup       | Insert in a 1000 column style with no indexes  |
+| No setup       | Insert in a 1000 column style with indexes     |
+| 1 million rows | Insert in a 1000 column style with no indexes  |
+| 1 million rows | Insert in a 1000 column style with indexes     |
 
 ### Setup Postgres
 
