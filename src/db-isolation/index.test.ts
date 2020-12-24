@@ -6,6 +6,7 @@ import {
   runReadSkew,
   runWriteSkew,
   setup,
+  runIncrement,
 } from "./fixtures";
 
 describe("db-isolation", () => {
@@ -75,6 +76,12 @@ describe("db-isolation", () => {
         runWriteSkew({ dbType, isSerializable: true })
       ).rejects.toThrow(`Failed transaction`);
     });
+
+    it("should error for increment in postgres for writing to stale read row", async () => {
+      await expect(runIncrement({ dbType })).rejects.toThrow(
+        'update "key_value" set "value" = $1 where "key" = $2 - could not serialize access due to concurrent update'
+      );
+    });
   });
 
   describe("mysql", () => {
@@ -123,6 +130,11 @@ describe("db-isolation", () => {
         { key: "alice", value: "offcall" },
         { key: "bob", value: "offcall" },
       ]);
+    });
+
+    it("should not error for increment in mysql for writing to stale read row (last write wins)", async () => {
+      const { result } = await runIncrement({ dbType });
+      expect(result).toEqual(1);
     });
   });
 });

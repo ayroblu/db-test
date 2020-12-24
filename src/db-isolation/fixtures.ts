@@ -217,3 +217,53 @@ export async function runWriteSkew({
 
   return { result };
 }
+
+type IncrementOptions = {
+  dbType: DbType;
+};
+/**
+ * Parallel writes on an item that depends on a read violate an application invariant
+ */
+export async function runIncrement({ dbType }: IncrementOptions) {
+  const knex = getKnex(dbType);
+  const input = [{ key: "my-key", value: "0" }];
+  await knex<KeyValueTable>("key_value").insert(input);
+  if (dbType === "mysql") {
+    await knex.raw("SET GLOBAL TRANSACTION ISOLATION LEVEL REPEATABLE READ;");
+  }
+
+  const trx = await knex.transaction();
+  const trx2 = await knex.transaction();
+  try {
+    if (dbType === "pg") {
+      await trx.raw("set transaction isolation level repeatable read;");
+      await trx2.raw("set transaction isolation level repeatable read;");
+    }
+    const value1 = await trx<KeyValueTable>("key_value")
+      .select("value")
+      .where("key", "my-key")
+      .then(([{ value }]) => parseInt(value, 10));
+    const value2 = await trx2<KeyValueTable>("key_value")
+      .select("value")
+      .where("key", "my-key")
+      .then(([{ value }]) => parseInt(value, 10));
+    await trx<KeyValueTable>("key_value")
+      .update({ value: value1 + 1 + "" })
+      .where({ key: "my-key" });
+    await trx.commit();
+    await trx2<KeyValueTable>("key_value")
+      .update({ value: value2 + 1 + "" })
+      .where({ key: "my-key" });
+    await trx2.commit();
+  } catch (err) {
+    await Promise.all([trx.rollback(), trx2.rollback()]);
+    throw err;
+  }
+
+  const result = await knex<KeyValueTable>("key_value")
+    .select("key", "value")
+    .where({ key: "my-key" })
+    .then(([{ value }]) => parseInt(value, 10));
+
+  return { result };
+}
