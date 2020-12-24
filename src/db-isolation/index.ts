@@ -32,9 +32,7 @@ async function run() {
     value: "my-value",
   };
   await knex<KeyValueTable>("key_value").insert(input);
-  const selectResult = await knex<KeyValueTable>("key_value")
-    .select()
-    .where("key", input.key);
+  const selectResult = await knex<KeyValueTable>("key_value").select().where("key", input.key);
   console.log(
     "result in db",
     _.isEqual(
@@ -50,17 +48,12 @@ async function run() {
   process.exit();
 }
 async function cleanUp() {
-  const { stdout } = await execPromise(
-    `set -x; docker ps -aqf "name=${myContainerName}"`
-  );
+  const { stdout } = await execPromise(`set -x; docker ps -aqf "name=${myContainerName}"`);
   const containerId = stdout.trim();
   if (containerId) {
-    execSync(
-      `set -x; docker stop "${containerId}" && docker rm "${containerId}"`,
-      {
-        stdio: "inherit",
-      }
-    );
+    execSync(`set -x; docker stop "${containerId}" && docker rm "${containerId}"`, {
+      stdio: "inherit",
+    });
   }
 }
 async function setup() {

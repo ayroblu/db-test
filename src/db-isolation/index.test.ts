@@ -34,9 +34,7 @@ describe("db-isolation", () => {
         value: "my-value",
       };
       await knex<KeyValueTable>("key_value").insert(input);
-      const selectResult = await knex<KeyValueTable>("key_value")
-        .select()
-        .where("key", input.key);
+      const selectResult = await knex<KeyValueTable>("key_value").select().where("key", input.key);
       expect(
         selectResult.map(({ key, value }) => ({
           key,
@@ -72,9 +70,9 @@ describe("db-isolation", () => {
     });
 
     it("should error on write skew with serializable for missing commit", async () => {
-      await expect(
-        runWriteSkew({ dbType, isSerializable: true })
-      ).rejects.toThrow(`Failed transaction`);
+      await expect(runWriteSkew({ dbType, isSerializable: true })).rejects.toThrow(
+        `Failed transaction`
+      );
     });
 
     it("should error for increment in postgres for writing to stale read row", async () => {
@@ -93,9 +91,7 @@ describe("db-isolation", () => {
         value: "my-value",
       };
       await knex<KeyValueTable>("key_value").insert(input);
-      const selectResult = await knex<KeyValueTable>("key_value")
-        .select()
-        .where("key", input.key);
+      const selectResult = await knex<KeyValueTable>("key_value").select().where("key", input.key);
       expect(
         selectResult.map(({ key, value }) => ({
           key,

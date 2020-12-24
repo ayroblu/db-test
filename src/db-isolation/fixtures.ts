@@ -55,12 +55,9 @@ const cleanUpDb = async (dbType: DbType) => {
   });
   const containerId = stdout.trim();
   if (containerId) {
-    execSync(
-      `set -x; docker stop "${containerId}" && docker rm "${containerId}"`,
-      {
-        stdio: "inherit",
-      }
-    );
+    execSync(`set -x; docker stop "${containerId}" && docker rm "${containerId}"`, {
+      stdio: "inherit",
+    });
   }
 };
 export const setup = async () => {
@@ -110,10 +107,7 @@ type ReadSkewOptions = {
 /**
  * Reading before and after a transaction has commited violates an application invariant
  */
-export async function runReadSkew({
-  isRepeatableRead,
-  dbType,
-}: ReadSkewOptions) {
+export async function runReadSkew({ isRepeatableRead, dbType }: ReadSkewOptions) {
   const knex = getKnex(dbType);
   const input = [
     {
@@ -133,12 +127,8 @@ export async function runReadSkew({
     await trx.raw("set transaction isolation level repeatable read;");
     await trx2.raw("set transaction isolation level repeatable read;");
   }
-  await trx<KeyValueTable>("key_value")
-    .update({ value: "my-value2" })
-    .where({ key: "my-key1" });
-  await trx<KeyValueTable>("key_value")
-    .update({ value: "my-value2" })
-    .where({ key: "my-key2" });
+  await trx<KeyValueTable>("key_value").update({ value: "my-value2" }).where({ key: "my-key1" });
+  await trx<KeyValueTable>("key_value").update({ value: "my-value2" }).where({ key: "my-key2" });
 
   const firstRead = await trx2<KeyValueTable>("key_value")
     .select("value")
@@ -161,10 +151,7 @@ type WriteSkewOptions = {
 /**
  * Parallel writes on an item that depends on a read violate an application invariant
  */
-export async function runWriteSkew({
-  isSerializable,
-  dbType,
-}: WriteSkewOptions) {
+export async function runWriteSkew({ isSerializable, dbType }: WriteSkewOptions) {
   const knex = getKnex(dbType);
   const input = [
     { key: "alice", value: "oncall" },
@@ -188,21 +175,15 @@ export async function runWriteSkew({
       await trx2.raw("set transaction isolation level repeatable read;");
     }
   }
-  const oncalls = await trx<KeyValueTable>("key_value")
-    .select("value")
-    .where("value", "oncall");
+  const oncalls = await trx<KeyValueTable>("key_value").select("value").where("value", "oncall");
   const oncallsBob = await trx2<KeyValueTable>("key_value")
     .select("value")
     .where("value", "oncall");
   if (oncalls.length > 1) {
-    await trx<KeyValueTable>("key_value")
-      .update({ value: "offcall" })
-      .where({ key: "alice" });
+    await trx<KeyValueTable>("key_value").update({ value: "offcall" }).where({ key: "alice" });
   }
   if (oncallsBob.length > 1) {
-    await trx2<KeyValueTable>("key_value")
-      .update({ value: "offcall" })
-      .where({ key: "bob" });
+    await trx2<KeyValueTable>("key_value").update({ value: "offcall" }).where({ key: "bob" });
   }
   await trx.commit();
   const transactionResult = await trx2.commit();
