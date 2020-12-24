@@ -4,6 +4,9 @@ Databases are magic, and there's a lot of random theory out there
 The purpose of this is to figure out what real world penalties there are from different types of data models
 
 ## Types of tests
+### Isolation
+Databases provide different isolation levels serializable, repeatable read / snapshopt isolation and read commited for example
+
 ### Throughput
 |----------------|------------------------------------------------|
 | Setup          | Description                                    |
