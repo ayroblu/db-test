@@ -1,104 +1,4 @@
-import { execSync } from "child_process";
-import knexBuilder from "knex";
-
-const pgImageName = "db-tests/pg-isolation";
-const mysqlImageName = "db-tests/mysql-isolation";
-const password = "mysecretpassword";
-
-const pgKnex = knexBuilder({
-  client: "pg",
-  connection: {
-    host: "127.0.0.1",
-    user: "postgres",
-    password,
-    database: "postgres",
-  },
-});
-const mysqlKnex = knexBuilder({
-  client: "mysql",
-  connection: {
-    host: "127.0.0.1",
-    user: "root",
-    password,
-    database: "mydb",
-  },
-});
-type DbType = "pg" | "mysql";
-export const getKnex = (dbType: DbType) => {
-  if (dbType === "pg") {
-    return pgKnex;
-  } else {
-    return mysqlKnex;
-  }
-};
-const getImageName = (dbType: DbType) => {
-  if (dbType === "pg") {
-    return pgImageName;
-  } else {
-    return mysqlImageName;
-  }
-};
-
-export type KeyValueTable = {
-  id: string;
-  key: string;
-  value: string;
-  created_at: Date;
-};
-
-export const cleanUp = async () => {
-  await Promise.all([cleanUpDb("pg"), cleanUpDb("mysql")]);
-};
-const cleanUpDb = async (dbType: DbType) => {
-  const stdout = execSync(`set -x; docker ps -aqf "name=${dbType}"`, {
-    encoding: "utf-8",
-  });
-  const containerId = stdout.trim();
-  if (containerId) {
-    execSync(`set -x; docker stop "${containerId}" && docker rm "${containerId}"`, {
-      stdio: "inherit",
-    });
-  }
-};
-export const setup = async () => {
-  await Promise.all([setupDb("pg"), setupDb("mysql")]);
-};
-const setupDb = async (dbType: DbType) => {
-  const knex = getKnex(dbType);
-  await cleanUpDb(dbType);
-  const imageName = getImageName(dbType);
-  execSync(
-    `set -x; docker build -t ${imageName} -f ${__dirname}/Dockerfile-${dbType} ${__dirname}`,
-    {
-      stdio: "inherit",
-    }
-  );
-  if (dbType === "pg") {
-    execSync(
-      `set -x; docker run -p 5432:5432 --name ${dbType} -e POSTGRES_PASSWORD=${password} -d ${imageName}:latest`,
-      { stdio: "inherit" }
-    );
-  } else {
-    execSync(
-      `set -x; docker run -p 3306:3306 --name ${dbType} -e MYSQL_DATABASE=mydb -e MYSQL_ROOT_PASSWORD=${password} -d ${imageName}:latest`,
-      { stdio: "inherit" }
-    );
-  }
-  await new Promise(async (resolve) => {
-    while (true) {
-      try {
-        await knex.select(knex.raw("1"));
-        resolve();
-        return;
-      } catch (err) {
-        // console.log("Waiting because:", err.message);
-        await wait(1000);
-      }
-    }
-  });
-  return dbType;
-};
-const wait = (t: number) => new Promise((y) => setTimeout(y, t));
+import { DbType, getKnex, KeyValueTable } from "./fixtures-setup";
 
 type ReadSkewOptions = {
   isRepeatableRead?: boolean;
@@ -121,12 +21,10 @@ export async function runReadSkew({ isRepeatableRead, dbType }: ReadSkewOptions)
   ];
   await knex<KeyValueTable>("key_value").insert(input);
 
-  const trx = await knex.transaction();
-  const trx2 = await knex.transaction();
-  if (dbType === "pg" && isRepeatableRead) {
-    await trx.raw("set transaction isolation level repeatable read;");
-    await trx2.raw("set transaction isolation level repeatable read;");
-  }
+  const { trx, trx2 } = await getTwoTransactions({
+    dbType,
+    isolationLevel: isRepeatableRead ? "repeatable read" : "default",
+  });
   await trx<KeyValueTable>("key_value").update({ value: "my-value2" }).where({ key: "my-key1" });
   await trx<KeyValueTable>("key_value").update({ value: "my-value2" }).where({ key: "my-key2" });
 
@@ -158,34 +56,26 @@ export async function runWriteSkew({ isSerializable, dbType }: WriteSkewOptions)
     { key: "bob", value: "oncall" },
   ];
   await knex<KeyValueTable>("key_value").insert(input);
-  if (dbType === "mysql" && isSerializable) {
-    await knex.raw("SET GLOBAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;");
-  } else if (dbType === "mysql" && !isSerializable) {
-    await knex.raw("SET GLOBAL TRANSACTION ISOLATION LEVEL REPEATABLE READ;");
-  }
+  const { trx, trx2 } = await getTwoTransactions({
+    dbType,
+    isolationLevel: isSerializable ? "serializable" : "repeatable read",
+  });
 
-  const trx = await knex.transaction();
-  const trx2 = await knex.transaction();
-  if (dbType === "pg") {
-    if (isSerializable) {
-      await trx.raw("set transaction isolation level serializable;");
-      await trx2.raw("set transaction isolation level serializable;");
-    } else {
-      await trx.raw("set transaction isolation level repeatable read;");
-      await trx2.raw("set transaction isolation level repeatable read;");
+  try {
+    const oncalls = await trx<KeyValueTable>("key_value").select("value").where("value", "oncall");
+    const oncallsBob = await trx2<KeyValueTable>("key_value")
+      .select("value")
+      .where("value", "oncall");
+    if (oncalls.length > 1) {
+      await trx<KeyValueTable>("key_value").update({ value: "offcall" }).where({ key: "alice" });
     }
+    await trx.commit();
+    if (oncallsBob.length > 1) {
+      await trx2<KeyValueTable>("key_value").update({ value: "offcall" }).where({ key: "bob" });
+    }
+  } catch (err) {
+    await Promise.all([trx.rollback(), trx2.rollback()]);
   }
-  const oncalls = await trx<KeyValueTable>("key_value").select("value").where("value", "oncall");
-  const oncallsBob = await trx2<KeyValueTable>("key_value")
-    .select("value")
-    .where("value", "oncall");
-  if (oncalls.length > 1) {
-    await trx<KeyValueTable>("key_value").update({ value: "offcall" }).where({ key: "alice" });
-  }
-  if (oncallsBob.length > 1) {
-    await trx2<KeyValueTable>("key_value").update({ value: "offcall" }).where({ key: "bob" });
-  }
-  await trx.commit();
   const transactionResult = await trx2.commit();
   if (!transactionResult) {
     throw new Error("Failed transaction");
@@ -209,17 +99,8 @@ export async function runIncrement({ dbType }: IncrementOptions) {
   const knex = getKnex(dbType);
   const input = [{ key: "my-key", value: "0" }];
   await knex<KeyValueTable>("key_value").insert(input);
-  if (dbType === "mysql") {
-    await knex.raw("SET GLOBAL TRANSACTION ISOLATION LEVEL REPEATABLE READ;");
-  }
-
-  const trx = await knex.transaction();
-  const trx2 = await knex.transaction();
+  const { trx, trx2 } = await getTwoTransactions({ dbType, isolationLevel: "repeatable read" });
   try {
-    if (dbType === "pg") {
-      await trx.raw("set transaction isolation level repeatable read;");
-      await trx2.raw("set transaction isolation level repeatable read;");
-    }
     const value1 = await trx<KeyValueTable>("key_value")
       .select("value")
       .where("key", "my-key")
@@ -247,4 +128,38 @@ export async function runIncrement({ dbType }: IncrementOptions) {
     .then(([{ value }]) => parseInt(value, 10));
 
   return { result };
+}
+
+type TransactionOptions = {
+  dbType: DbType;
+  isolationLevel: "default" | "repeatable read" | "serializable";
+};
+async function getTwoTransactions({ dbType, isolationLevel }: TransactionOptions) {
+  const knex = getKnex(dbType);
+  if (dbType === "mysql") {
+    if (isolationLevel === "default" || isolationLevel === "repeatable read") {
+      await knex.raw("SET GLOBAL TRANSACTION ISOLATION LEVEL REPEATABLE READ;");
+    } else if (isolationLevel === "serializable") {
+      await knex.raw("SET GLOBAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;");
+    }
+  }
+
+  const trx = await knex.transaction();
+  const trx2 = await knex.transaction();
+  try {
+    if (dbType === "pg" && isolationLevel === "repeatable read") {
+      await trx.raw("set transaction isolation level repeatable read;");
+      await trx2.raw("set transaction isolation level repeatable read;");
+    } else if (dbType === "pg" && isolationLevel === "serializable") {
+      await trx.raw("set transaction isolation level serializable;");
+      await trx2.raw("set transaction isolation level serializable;");
+    }
+  } catch (err) {
+    await Promise.all([trx.rollback(), trx2.rollback()]);
+    throw err;
+  }
+  return {
+    trx,
+    trx2,
+  };
 }

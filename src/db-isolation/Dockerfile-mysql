@@ -1,3 +1,0 @@
-FROM mysql:5.7.32
-
-ADD init-mysql.sql /docker-entrypoint-initdb.d/

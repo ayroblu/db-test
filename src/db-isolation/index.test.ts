@@ -1,13 +1,5 @@
-import _ from "lodash";
-import {
-  cleanUp,
-  KeyValueTable,
-  getKnex,
-  runReadSkew,
-  runWriteSkew,
-  setup,
-  runIncrement,
-} from "./fixtures";
+import { runIncrement, runReadSkew, runWriteSkew } from "./fixtures";
+import { setup, getKnex, cleanUp, KeyValueTable } from "./fixtures-setup";
 
 describe("db-isolation", () => {
   // docker exec -it db psql -U postgres
@@ -119,7 +111,7 @@ describe("db-isolation", () => {
     });
 
     it("should error on write skew with serializable but actually does write skew", async () => {
-      // This should throw
+      // This throws in postgres, but not in mysql
       const { result } = await runWriteSkew({ dbType, isSerializable: true });
 
       expect(result).toEqual([
