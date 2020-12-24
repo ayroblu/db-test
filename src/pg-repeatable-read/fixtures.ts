@@ -1,7 +1,6 @@
+import { exec, execSync } from "child_process";
 import knexBuilder from "knex";
 import { promisify } from "util";
-import { exec, execSync } from "child_process";
-import _ from "lodash";
 
 const execPromise = promisify(exec);
 const myImageName = "db-tests/pg-repeatable-read";
@@ -62,3 +61,91 @@ export const setup = async () => {
   });
 };
 const wait = (t: number) => new Promise((y) => setTimeout(y, t));
+
+type ReadSkewOptions = {
+  isRepeatableRead?: boolean;
+};
+/**
+ * Reading before and after a transaction has commited violates an application invariant
+ */
+export async function runReadSkew({ isRepeatableRead }: ReadSkewOptions = {}) {
+  const input = [
+    {
+      key: "my-key1",
+      value: "my-value1",
+    },
+    {
+      key: "my-key2",
+      value: "my-value1",
+    },
+  ];
+  await knex<KeyValueTable>("key_value").insert(input);
+
+  const trx = await knex.transaction();
+  const trx2 = await knex.transaction();
+  if (isRepeatableRead) {
+    await trx.raw("set transaction isolation level repeatable read;");
+    await trx2.raw("set transaction isolation level repeatable read;");
+  }
+  await trx<KeyValueTable>("key_value")
+    .update({ value: "my-value2" })
+    .where({ key: "my-key1" });
+  await trx<KeyValueTable>("key_value")
+    .update({ value: "my-value2" })
+    .where({ key: "my-key2" });
+
+  const firstRead = await trx2<KeyValueTable>("key_value")
+    .select("value")
+    .where({ key: "my-key1" })
+    .then((a) => a[0].value);
+  await trx.commit();
+  const secondRead = await trx2<KeyValueTable>("key_value")
+    .select("value")
+    .where({ key: "my-key2" })
+    .then((a) => a[0].value);
+  await trx2.commit();
+
+  return { firstRead, secondRead };
+}
+
+type WriteSkewOptions = {
+  isSerializable?: boolean;
+};
+/**
+ * Parallel writes on an item that depends on a read violate an application invariant
+ */
+export async function runWriteSkew({ isSerializable }: WriteSkewOptions = {}) {
+  const input = [{ key: "my-key1", value: "0" }];
+  await knex<KeyValueTable>("key_value").insert(input);
+
+  const trx = await knex.transaction();
+  const trx2 = await knex.transaction();
+  if (isSerializable) {
+    await trx.raw("set transaction isolation level serializable;");
+    await trx2.raw("set transaction isolation level serializable;");
+  }
+  const value1 = await trx<KeyValueTable>("key_value")
+    .select("value")
+    .where({ key: "my-key1" })
+    .then(([{ value }]) => parseInt(value, 10));
+  await trx<KeyValueTable>("key_value")
+    .update({ value: value1 + 1 + "" })
+    .where({ key: "my-key1" });
+  const value2 = await trx2<KeyValueTable>("key_value")
+    .select("value")
+    .where({ key: "my-key1" })
+    .then(([{ value }]) => parseInt(value, 10));
+  await trx.commit();
+  // This line can't run until commit finishes due to lock held on this
+  await trx2<KeyValueTable>("key_value")
+    .update({ value: value2 + 1 + "" })
+    .where({ key: "my-key1" });
+  await trx2.commit();
+
+  const result = await knex<KeyValueTable>("key_value")
+    .select("value")
+    .where({ key: "my-key1" })
+    .then(([{ value }]) => value);
+
+  return { result };
+}
