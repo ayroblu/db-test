@@ -14,6 +14,7 @@ const pgKnex = knexBuilder({
     database: "postgres",
   },
 });
+
 const mysqlKnex = knexBuilder({
   client: "mysql",
   connection: {
@@ -23,7 +24,9 @@ const mysqlKnex = knexBuilder({
     database: "mydb",
   },
 });
+
 export type DbType = "pg" | "mysql";
+
 export const getKnex = (dbType: DbType) => {
   if (dbType === "pg") {
     return pgKnex;
@@ -31,6 +34,7 @@ export const getKnex = (dbType: DbType) => {
     return mysqlKnex;
   }
 };
+
 const getImageName = (dbType: DbType) => {
   if (dbType === "pg") {
     return pgImageName;
@@ -44,10 +48,7 @@ export type KeyValueTable = {
   value: string;
 };
 
-export const cleanUp = async () => {
-  await Promise.all([cleanUpDb("pg"), cleanUpDb("mysql")]);
-};
-const cleanUpDb = async (dbType: DbType) => {
+export const cleanUpDb = async (dbType: DbType) => {
   const stdout = execSync(`set -x; docker ps -aqf "name=${dbType}"`, {
     encoding: "utf-8",
   });
@@ -58,10 +59,8 @@ const cleanUpDb = async (dbType: DbType) => {
     });
   }
 };
-export const setup = async () => {
-  await Promise.all([setupDb("pg"), setupDb("mysql")]);
-};
-const setupDb = async (dbType: DbType) => {
+
+export const setupDb = async (dbType: DbType) => {
   const knex = getKnex(dbType);
   await cleanUpDb(dbType);
   const imageName = getImageName(dbType);
@@ -90,7 +89,9 @@ const setupDb = async (dbType: DbType) => {
   });
   await createKeyValueTable(dbType);
 };
+
 const wait = (t: number) => new Promise((y) => setTimeout(y, t));
+
 async function createKeyValueTable(dbType: DbType) {
   const knex = getKnex(dbType);
   return knex.schema.createTable("key_value", (table) => {

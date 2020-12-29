@@ -1,5 +1,0 @@
-CREATE TABLE key_value (
-  key TEXT NOT NULL PRIMARY KEY,
-  value TEXT NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
