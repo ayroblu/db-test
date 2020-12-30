@@ -6,3 +6,4 @@ require:
   - "chai/register-expect"
   - "./src/setup-test.ts"
 parallel: true
+slow: 0
