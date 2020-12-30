@@ -34,6 +34,7 @@ const mssqlKnex = knexBuilder({
     user: "sa",
     password: mssqlPassword,
     database: "mydb",
+    port: 14333,
   },
 });
 
@@ -79,7 +80,7 @@ function getRunCommand(dbType: DbType) {
     case "mysql":
       return `set -x; docker pull -q ${mysqlImageName}; docker run -p 3306:3306 --name ${dbType} -e MYSQL_DATABASE=mydb -e MYSQL_ROOT_PASSWORD=${password} -d ${mysqlImageName}`;
     case "mssql":
-      return `set -x; docker pull -q ${mssqlImageName}; docker run -p 1433:1433 --name ${dbType} -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=${mssqlPassword}' -d ${mssqlImageName}`;
+      return `set -x; docker pull -q ${mssqlImageName}; docker run -p 14333:1433 --name ${dbType} -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=${mssqlPassword}' -d ${mssqlImageName}`;
     default:
       checkUnreachable(dbType);
       throw new Error("Not Implemented");
@@ -122,6 +123,7 @@ async function waitForMssql() {
       host: "localhost",
       user: "sa",
       password: mssqlPassword,
+      port: 14333,
     },
   });
   console.log("Creating mssql mydb");
