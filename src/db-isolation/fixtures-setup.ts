@@ -130,11 +130,12 @@ async function waitForMssql() {
   async function createDb() {
     await knex
       .raw("CREATE DATABASE mydb")
-      .catch(async () => {
+      .catch(async (err) => {
+        console.warn("Waiting because:", err.message);
         return wait(1000).then(createDb);
       })
       .then(() => knex.raw("ALTER DATABASE mydb SET ALLOW_SNAPSHOT_ISOLATION ON"));
-    console.log("Creating mssql mydb");
+    console.log("Done creating mssql mydb");
   }
   await createDb().then(() => knex.destroy());
 }
