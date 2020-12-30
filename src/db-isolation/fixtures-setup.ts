@@ -3,7 +3,9 @@ import knexBuilder from "knex";
 
 const pgImageName = "postgres:latest";
 const mysqlImageName = "mysql:5.7.32";
+const mssqlImageName = "mcr.microsoft.com/mssql/server:2019-latest";
 const password = "mysecretpassword";
+const mssqlPassword = "yourStrong(!)Password";
 
 const pgKnex = knexBuilder({
   client: "pg",
@@ -25,23 +27,33 @@ const mysqlKnex = knexBuilder({
   },
 });
 
-export type DbType = "pg" | "mysql";
+const mssqlKnex = knexBuilder({
+  client: "mssql",
+  connection: {
+    host: "127.0.0.1",
+    user: "sa",
+    password: mssqlPassword,
+    database: "mydb",
+  },
+});
+
+export type DbType = "pg" | "mysql" | "mssql";
 
 export const getKnex = (dbType: DbType) => {
-  if (dbType === "pg") {
-    return pgKnex;
-  } else {
-    return mysqlKnex;
+  switch (dbType) {
+    case "pg":
+      return pgKnex;
+    case "mysql":
+      return mysqlKnex;
+    case "mssql":
+      return mssqlKnex;
+    default:
+      checkUnreachable(dbType);
+      throw new Error("Not Implemented");
   }
 };
 
-const getImageName = (dbType: DbType) => {
-  if (dbType === "pg") {
-    return pgImageName;
-  } else {
-    return mysqlImageName;
-  }
-};
+const checkUnreachable = (_x: never) => {};
 
 export type KeyValueTable = {
   key: string;
@@ -60,37 +72,70 @@ export const cleanUpDb = async (dbType: DbType) => {
   }
 };
 
-export const setupDb = async (dbType: DbType) => {
-  const knex = getKnex(dbType);
-  await cleanUpDb(dbType);
-  const imageName = getImageName(dbType);
-  if (dbType === "pg") {
-    execSync(
-      `set -x; docker run -p 5432:5432 --name ${dbType} -e POSTGRES_PASSWORD=${password} -d ${imageName}`,
-      { stdio: "inherit" }
-    );
-  } else {
-    execSync(
-      `set -x; docker run -p 3306:3306 --name ${dbType} -e MYSQL_DATABASE=mydb -e MYSQL_ROOT_PASSWORD=${password} -d ${imageName}`,
-      { stdio: "inherit" }
-    );
+function getRunCommand(dbType: DbType) {
+  switch (dbType) {
+    case "pg":
+      return `set -x; docker run -p 5432:5432 --name ${dbType} -e POSTGRES_PASSWORD=${password} -d ${pgImageName}`;
+    case "mysql":
+      return `set -x; docker run -p 3306:3306 --name ${dbType} -e MYSQL_DATABASE=mydb -e MYSQL_ROOT_PASSWORD=${password} -d ${mysqlImageName}`;
+    case "mssql":
+      return `set -x; docker run -p 1433:1433 --name ${dbType} -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=${mssqlPassword}' -d ${mssqlImageName}`;
+    default:
+      checkUnreachable(dbType);
+      throw new Error("Not Implemented");
   }
-  await new Promise(async (resolve) => {
+}
+
+export const setupDb = async (dbType: DbType) => {
+  await cleanUpDb(dbType);
+
+  const runCommand = getRunCommand(dbType);
+  execSync(runCommand, { stdio: "inherit" });
+
+  await waitForDb(dbType);
+  await createKeyValueTable(dbType);
+};
+
+async function waitForDb(dbType: DbType) {
+  const knex = getKnex(dbType);
+  if (dbType === "mssql") {
+    await waitForMssql();
+  }
+  return new Promise(async (resolve) => {
     while (true) {
       try {
         await knex.select(knex.raw("1"));
         resolve();
         return;
       } catch (err) {
-        // console.log("Waiting because:", err.message);
+        // console.warn("Waiting because:", err.message);
         await wait(1000);
       }
     }
   });
-  await createKeyValueTable(dbType);
-};
+}
 
-const wait = (t: number) => new Promise((y) => setTimeout(y, t));
+async function waitForMssql() {
+  const knex = knexBuilder({
+    client: "mssql",
+    connection: {
+      host: "127.0.0.1",
+      user: "sa",
+      password: mssqlPassword,
+    },
+  });
+  async function createDb() {
+    await knex
+      .raw("CREATE DATABASE mydb")
+      .catch(async () => {
+        return wait(1000).then(createDb);
+      })
+      .then(() => knex.raw("ALTER DATABASE mydb SET ALLOW_SNAPSHOT_ISOLATION ON"));
+  }
+  await createDb().then(() => knex.destroy());
+}
+
+export const wait = (t: number) => new Promise((y) => setTimeout(y, t));
 
 async function createKeyValueTable(dbType: DbType) {
   const knex = getKnex(dbType);

@@ -2,19 +2,20 @@ import { runIncrement, runReadSkew, runWriteSkew } from "./fixtures";
 import { setupDb, getKnex, cleanUpDb, KeyValueTable } from "./fixtures-setup";
 
 describe("db-isolation/mysql", () => {
+  const dbType = "mysql";
   beforeAll(async () => {
-    await setupDb("mysql");
+    await setupDb(dbType);
   }, 30_000);
   afterEach(async () => {
-    await getKnex("mysql")("key_value").truncate();
+    await getKnex(dbType)("key_value").truncate();
   });
   afterAll(async () => {
-    await getKnex("mysql").destroy();
-    await cleanUpDb("mysql");
+    await getKnex(dbType).destroy();
+    await cleanUpDb(dbType);
   }, 10_000);
 
-  const dbType = "mysql";
   const knex = getKnex(dbType);
+
   it("should be able to interpret an insert and read", async () => {
     const input = {
       key: "my-key",

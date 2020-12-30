@@ -3,18 +3,18 @@ import { setupDb, getKnex, cleanUpDb, KeyValueTable } from "./fixtures-setup";
 
 describe("db-isolation/pg", () => {
   // docker exec -it db psql -U postgres
+  const dbType = "pg";
   beforeAll(async () => {
-    await setupDb("pg");
+    await setupDb(dbType);
   }, 30_000);
   afterEach(async () => {
-    await getKnex("pg")("key_value").truncate();
+    await getKnex(dbType)("key_value").truncate();
   });
   afterAll(async () => {
-    await getKnex("pg").destroy();
-    await cleanUpDb("pg");
+    await getKnex(dbType).destroy();
+    await cleanUpDb(dbType);
   }, 10_000);
 
-  const dbType = "pg";
   const knex = getKnex(dbType);
 
   it("should be able to interpret an insert and read", async () => {
