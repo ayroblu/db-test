@@ -1,7 +1,7 @@
 import { execSync } from "child_process";
 import knexBuilder from "knex";
 
-const pgImageName = "postgres:latest";
+const pgImageName = "postgres:alpine";
 const mysqlImageName = "mysql:5.7.32";
 const mssqlImageName = "mcr.microsoft.com/mssql/server:2019-latest";
 const password = "mysecretpassword";
