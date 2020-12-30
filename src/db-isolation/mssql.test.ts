@@ -1,5 +1,6 @@
 import { runReadSkewMssql, runWriteSkewMssql } from "./fixtures";
 import { cleanUpDb, getKnex, KeyValueTable, setupDb } from "./fixtures-setup";
+import { execSync } from "child_process";
 
 describe("db-isolation/mssql", () => {
   // docker exec -it <container_id|container_name> /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P <your_password>
@@ -8,6 +9,7 @@ describe("db-isolation/mssql", () => {
     await setupDb(dbType);
   }, 30_000);
   afterEach(async () => {
+    execSync("docker ps", { stdio: "inherit" });
     await getKnex(dbType)("key_value").truncate();
   });
   afterAll(async () => {
