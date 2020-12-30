@@ -7,7 +7,7 @@ describe("db-isolation/mssql", () => {
   const dbType = "mssql";
   beforeAll(async () => {
     await setupDb(dbType);
-  }, 30_000);
+  }, 60_000);
   afterEach(async () => {
     await getKnex(dbType)("key_value").truncate();
   });
