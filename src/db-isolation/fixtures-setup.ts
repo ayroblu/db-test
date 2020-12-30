@@ -75,11 +75,11 @@ export const cleanUpDb = async (dbType: DbType) => {
 function getRunCommand(dbType: DbType) {
   switch (dbType) {
     case "pg":
-      return `set -x; docker run -p 5432:5432 --name ${dbType} -e POSTGRES_PASSWORD=${password} -d ${pgImageName}`;
+      return `set -x; docker pull -q ${pgImageName}; docker run -p 5432:5432 --name ${dbType} -e POSTGRES_PASSWORD=${password} -d ${pgImageName}`;
     case "mysql":
-      return `set -x; docker run -p 3306:3306 --name ${dbType} -e MYSQL_DATABASE=mydb -e MYSQL_ROOT_PASSWORD=${password} -d ${mysqlImageName}`;
+      return `set -x; docker pull -q ${mysqlImageName}; docker run -p 3306:3306 --name ${dbType} -e MYSQL_DATABASE=mydb -e MYSQL_ROOT_PASSWORD=${password} -d ${mysqlImageName}`;
     case "mssql":
-      return `set -x; docker run -p 1433:1433 --name ${dbType} -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=${mssqlPassword}' -d ${mssqlImageName}`;
+      return `set -x; docker pull -q ${mssqlImageName}; docker run -p 1433:1433 --name ${dbType} -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=${mssqlPassword}' -d ${mssqlImageName}`;
     default:
       checkUnreachable(dbType);
       throw new Error("Not Implemented");

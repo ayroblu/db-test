@@ -9,10 +9,10 @@ describe("db-isolation/mssql", () => {
     await setupDb(dbType);
   }, 30_000);
   afterEach(async () => {
-    execSync("docker ps", { stdio: "inherit" });
     await getKnex(dbType)("key_value").truncate();
   });
   afterAll(async () => {
+    execSync("docker logs mssql", { stdio: "inherit" });
     await getKnex(dbType).destroy();
     await cleanUpDb(dbType);
   }, 10_000);
