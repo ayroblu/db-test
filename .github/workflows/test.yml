@@ -47,7 +47,12 @@ jobs:
       run: yarn --frozen-lockfile
 
     - name: Pull containers in step for transparency
-      run: "set -x; docker pull -q postgres:latest && docker pull -q mysql:5.7.32 && docker pull -q mcr.microsoft.com/mssql/server:2019-latest"
+      run: |
+        set -x
+        docker pull -q postgres:latest &
+        docker pull -q mysql:5.7.32 &
+        docker pull -q mcr.microsoft.com/mssql/server:2019-latest
+        wait
 
     - name: Test
       run: yarn test
