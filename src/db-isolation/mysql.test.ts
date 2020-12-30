@@ -3,16 +3,18 @@ import { setupDb, getKnex, cleanUpDb, KeyValueTable } from "./fixtures-setup";
 
 describe("db-isolation/mysql", () => {
   const dbType = "mysql";
-  beforeAll(async () => {
+  before(async function () {
+    this.timeout(30_000);
     await setupDb(dbType);
-  }, 30_000);
+  });
   afterEach(async () => {
     await getKnex(dbType)("key_value").truncate();
   });
-  afterAll(async () => {
+  after(async function () {
+    this.timeout(10_000);
     await getKnex(dbType).destroy();
     await cleanUpDb(dbType);
-  }, 10_000);
+  });
 
   const knex = getKnex(dbType);
 
@@ -28,7 +30,7 @@ describe("db-isolation/mysql", () => {
         key,
         value,
       }))
-    ).toEqual([input]);
+    ).to.deep.equal([input]);
   });
 
   it("should not show read skew with default repeatable read (snapshot isolation)", async () => {
@@ -36,14 +38,14 @@ describe("db-isolation/mysql", () => {
       dbType,
     });
 
-    expect(firstRead).toEqual("my-value1");
-    expect(secondRead).toEqual("my-value1");
+    expect(firstRead).to.deep.equal("my-value1");
+    expect(secondRead).to.deep.equal("my-value1");
   });
 
   it("should demonstrate write skew", async () => {
     const { result } = await runWriteSkew({ dbType });
 
-    expect(result).toEqual([
+    expect(result).to.deep.equal([
       { key: "alice", value: "offcall" },
       { key: "bob", value: "offcall" },
     ]);
@@ -53,7 +55,7 @@ describe("db-isolation/mysql", () => {
     // This throws in postgres, but not in mysql
     const { result } = await runWriteSkew({ dbType, isSerializable: true });
 
-    expect(result).toEqual([
+    expect(result).to.deep.equal([
       { key: "alice", value: "offcall" },
       { key: "bob", value: "offcall" },
     ]);
@@ -61,6 +63,6 @@ describe("db-isolation/mysql", () => {
 
   it("should not error for increment in mysql for writing to stale read row (last write wins)", async () => {
     const { result } = await runIncrement({ dbType });
-    expect(result).toEqual(1);
+    expect(result).to.deep.equal(1);
   });
 });

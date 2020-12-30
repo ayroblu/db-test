@@ -4,16 +4,18 @@ import { setupDb, getKnex, cleanUpDb, KeyValueTable } from "./fixtures-setup";
 describe("db-isolation/pg", () => {
   // docker exec -it db psql -U postgres
   const dbType = "pg";
-  beforeAll(async () => {
+  before(async function () {
+    this.timeout(30_000);
     await setupDb(dbType);
-  }, 30_000);
+  });
   afterEach(async () => {
     await getKnex(dbType)("key_value").truncate();
   });
-  afterAll(async () => {
+  after(async function () {
+    this.timeout(10_000);
     await getKnex(dbType).destroy();
     await cleanUpDb(dbType);
-  }, 10_000);
+  });
 
   const knex = getKnex(dbType);
 
@@ -29,14 +31,14 @@ describe("db-isolation/pg", () => {
         key,
         value,
       }))
-    ).toEqual([input]);
+    ).to.deep.equal([input]);
   });
 
   it("should demonstrate read skew", async () => {
     const { firstRead, secondRead } = await runReadSkew({ dbType });
 
-    expect(firstRead).toEqual("my-value1");
-    expect(secondRead).toEqual("my-value2");
+    expect(firstRead).to.deep.equal("my-value1");
+    expect(secondRead).to.deep.equal("my-value2");
   });
 
   it("should eliminate read skew with repeatable read (snapshot isolation)", async () => {
@@ -45,27 +47,27 @@ describe("db-isolation/pg", () => {
       isRepeatableRead: true,
     });
 
-    expect(firstRead).toEqual("my-value1");
-    expect(secondRead).toEqual("my-value1");
+    expect(firstRead).to.deep.equal("my-value1");
+    expect(secondRead).to.deep.equal("my-value1");
   });
 
   it("should demonstrate write skew", async () => {
     const { result } = await runWriteSkew({ dbType });
 
-    expect(result).toEqual([
+    expect(result).to.deep.equal([
       { key: "alice", value: "offcall" },
       { key: "bob", value: "offcall" },
     ]);
   });
 
   it("should error on write skew with serializable for missing commit", async () => {
-    await expect(runWriteSkew({ dbType, isSerializable: true })).rejects.toThrow(
+    await expect(runWriteSkew({ dbType, isSerializable: true })).to.be.rejectedWith(
       `Failed transaction`
     );
   });
 
   it("should error for increment in postgres for writing to stale read row", async () => {
-    await expect(runIncrement({ dbType })).rejects.toThrow(
+    await expect(runIncrement({ dbType })).to.be.rejectedWith(
       'update "key_value" set "value" = $1 where "key" = $2 - could not serialize access due to concurrent update'
     );
   });

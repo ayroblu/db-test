@@ -54,5 +54,8 @@ jobs:
         docker pull -q mcr.microsoft.com/mssql/server:2019-latest
         wait
 
+    - name: Typecheck
+      run: yarn tsc
+
     - name: Test
       run: yarn test --verbose

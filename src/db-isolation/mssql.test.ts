@@ -4,16 +4,18 @@ import { cleanUpDb, getKnex, KeyValueTable, setupDb } from "./fixtures-setup";
 describe("db-isolation/mssql", () => {
   // docker exec -it <container_id|container_name> /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P <your_password>
   const dbType = "mssql";
-  beforeAll(async () => {
+  before(async function () {
+    this.timeout(30_000);
     await setupDb(dbType);
-  }, 60_000);
+  });
   afterEach(async () => {
     await getKnex(dbType)("key_value").truncate();
   });
-  afterAll(async () => {
+  after(async function () {
+    this.timeout(10_000);
     await getKnex(dbType).destroy();
     await cleanUpDb(dbType);
-  }, 10_000);
+  });
 
   const knex = getKnex(dbType);
 
@@ -29,32 +31,32 @@ describe("db-isolation/mssql", () => {
         key,
         value,
       }))
-    ).toEqual([input]);
+    ).to.deep.equal([input]);
   });
 
   it("should demonstrate read skew", async () => {
     const { firstRead, secondRead } = await runReadSkewMssql("repeatable read");
 
-    expect(firstRead).not.toEqual(secondRead);
+    expect(firstRead).not.to.deep.equal(secondRead);
   });
 
   it("should eliminate read skew with repeatable read (snapshot isolation)", async () => {
     const { firstRead, secondRead } = await runReadSkewMssql("snapshot");
 
-    expect(firstRead).toEqual(secondRead);
+    expect(firstRead).to.deep.equal(secondRead);
   });
 
   it("should demonstrate write skew", async () => {
     const { result } = await runWriteSkewMssql("snapshot");
 
-    expect(result).toEqual([
+    expect(result).to.deep.equal([
       { key: "alice", value: "offcall" },
       { key: "bob", value: "offcall" },
     ]);
   });
 
   it("should error on write skew with serializable for deadlock - killed", async () => {
-    await expect(runWriteSkewMssql("serializable")).rejects.toThrow(
+    await expect(runWriteSkewMssql("serializable")).to.be.rejectedWith(
       `Cannot continue the execution because the session is in the kill state`
     );
   });

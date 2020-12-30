@@ -1,0 +1,7 @@
+extension:
+  - "ts"
+spec: "src/**/*.test.ts"
+require:
+  - "ts-node/register/transpile-only"
+  - "chai/register-expect"
+  - "./src/setup-test.ts"
