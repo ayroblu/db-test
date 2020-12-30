@@ -12,7 +12,7 @@ describe("db-isolation/mssql", () => {
     await getKnex(dbType)("key_value").truncate();
   });
   after(async function () {
-    this.timeout(10_000);
+    this.timeout(20_000);
     await getKnex(dbType).destroy();
     await cleanUpDb(dbType);
   });
