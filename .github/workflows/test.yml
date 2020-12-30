@@ -55,4 +55,4 @@ jobs:
         wait
 
     - name: Test
-      run: yarn test
+      run: yarn test --verbose
