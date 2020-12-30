@@ -34,7 +34,6 @@ const mssqlKnex = knexBuilder({
     user: "sa",
     password: mssqlPassword,
     database: "mydb",
-    port: 14333,
   },
 });
 
@@ -80,7 +79,7 @@ function getRunCommand(dbType: DbType) {
     case "mysql":
       return `set -x; docker pull -q ${mysqlImageName}; docker run -p 3306:3306 --name ${dbType} -e MYSQL_DATABASE=mydb -e MYSQL_ROOT_PASSWORD=${password} -d ${mysqlImageName}`;
     case "mssql":
-      return `set -x; docker pull -q ${mssqlImageName}; docker run -p 14333:1433 --name ${dbType} -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=${mssqlPassword}' -d ${mssqlImageName}`;
+      return `set -x; docker pull -q ${mssqlImageName}; docker run -p 1433:1433 --name ${dbType} -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=${mssqlPassword}' -d ${mssqlImageName}`;
     default:
       checkUnreachable(dbType);
       throw new Error("Not Implemented");
@@ -123,18 +122,20 @@ async function waitForMssql() {
       host: "localhost",
       user: "sa",
       password: mssqlPassword,
-      port: 14333,
     },
   });
   console.log("Creating mssql mydb");
   async function createDb() {
-    await knex
-      .raw("CREATE DATABASE mydb")
-      .catch(async (err) => {
-        console.warn("Waiting because:", err.message);
-        return wait(1000).then(createDb);
-      })
-      .then(() => knex.raw("ALTER DATABASE mydb SET ALLOW_SNAPSHOT_ISOLATION ON"));
+    while (true) {
+      try {
+        await knex.raw("CREATE DATABASE mydb");
+      } catch (err) {
+        await wait(1000);
+        continue;
+      }
+      break;
+    }
+    await knex.raw("ALTER DATABASE mydb SET ALLOW_SNAPSHOT_ISOLATION ON");
     console.log("Done creating mssql mydb");
   }
   await createDb().then(() => knex.destroy());
