@@ -10,7 +10,7 @@ const mssqlPassword = "yourStrong(!)Password";
 const pgKnex = knexBuilder({
   client: "pg",
   connection: {
-    host: "127.0.0.1",
+    host: "localhost",
     user: "postgres",
     password,
     database: "postgres",
@@ -20,7 +20,7 @@ const pgKnex = knexBuilder({
 const mysqlKnex = knexBuilder({
   client: "mysql",
   connection: {
-    host: "127.0.0.1",
+    host: "localhost",
     user: "root",
     password,
     database: "mydb",
@@ -30,7 +30,7 @@ const mysqlKnex = knexBuilder({
 const mssqlKnex = knexBuilder({
   client: "mssql",
   connection: {
-    host: "127.0.0.1",
+    host: "localhost",
     user: "sa",
     password: mssqlPassword,
     database: "mydb",
@@ -119,7 +119,7 @@ async function waitForMssql() {
   const knex = knexBuilder({
     client: "mssql",
     connection: {
-      host: "127.0.0.1",
+      host: "localhost",
       user: "sa",
       password: mssqlPassword,
     },
