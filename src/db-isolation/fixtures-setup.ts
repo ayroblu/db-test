@@ -124,7 +124,6 @@ async function waitForMssql() {
       password: mssqlPassword,
     },
   });
-  console.log("Creating mssql mydb");
   async function createDb() {
     while (true) {
       try {
@@ -136,7 +135,6 @@ async function waitForMssql() {
       break;
     }
     await knex.raw("ALTER DATABASE mydb SET ALLOW_SNAPSHOT_ISOLATION ON");
-    console.log("Done creating mssql mydb");
   }
   await createDb().then(() => knex.destroy());
 }
