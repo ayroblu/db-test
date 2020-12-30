@@ -1,4 +1,4 @@
-import { runIncrement, runReadSkewMssql, runWriteSkewMssql } from "./fixtures";
+import { runReadSkewMssql, runWriteSkewMssql } from "./fixtures";
 import { cleanUpDb, getKnex, KeyValueTable, setupDb } from "./fixtures-setup";
 
 describe("db-isolation/mssql", () => {
