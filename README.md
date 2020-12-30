@@ -61,3 +61,7 @@ Relational
 ### Thoughts on "consistency"
 
 How do you do clocks? For example, if your clock is wrong and it gets corrected by a few milliseconds, does it start writing overlapping timestamps?
+
+## Note on test runner - mocha
+
+Using mocha instead of jest because of: https://github.com/serverless/serverless/pull/6517

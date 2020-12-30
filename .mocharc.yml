@@ -5,3 +5,4 @@ require:
   - "ts-node/register/transpile-only"
   - "chai/register-expect"
   - "./src/setup-test.ts"
+parallel: true
